@@ -16,15 +16,16 @@ VERSION = "0.0.3"
 DATE = "2017-07-15"
 
 
-import os
-import sys
 import argparse
+import os
 import subprocess
+import sys
 
 # PDF and metadata libraries
-from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 from pdfminer.pdftypes import resolve1
+
 from xmp import xmp_to_dict
 
 
@@ -57,7 +58,7 @@ class RenamePDFsByTitle(object):
         for f in self.pdf_files:
             root, ext = os.path.splitext(f)
             path, base = os.path.split(root)
-            print('Processing "%s":' % f)
+            print(f'Processing "{f}":')
 
             # Parse standard and XMP metadata, then go interactive if specified
             title, author = self._get_info(f)
@@ -72,7 +73,7 @@ class RenamePDFsByTitle(object):
                 continue
 
             newf = os.path.join(path, self._new_filename(title, author))
-            print(' -- Renaming to "%s"' % newf)
+            print(f' -- Renaming to "{newf}"')
             if self.dry_run:
                 continue
 
@@ -94,22 +95,22 @@ class RenamePDFsByTitle(object):
                     Nerrors += 1
 
         if self.dry_run:
-            print("Processed %d files [dry run]:" % Ntot)
+            print(f"Processed {Ntot} files [dry run]:")
         else:
-            print("Processed %d files:" % Ntot)
-        print(" - Renamed: %d" % Nrenamed)
+            print(f"Processed {Ntot} files:")
+        print(f" - Renamed: {Nrenamed}")
         if self.destination:
-            print(" - Filed: %d" % Nfiled)
-        print(" - Missing metadata: %d" % Nmissing)
-        print(" - Errors: %d" % Nerrors)
+            print(f" - Filed: {Nfiled}")
+        print(f" - Missing metadata: {Nmissing}")
+        print(f" - Errors: {Nerrors}")
 
         return 0
 
     def _new_filename(self, title, author):
         n = self._sanitize(title)
         if author:
-            n = "%s - %s" % (self._sanitize(author), n)
-        n = "%s.pdf" % n[:250]  # limit filenames to ~255 chars
+            n = " - ".join((self._sanitize(author), n))
+        n = f"{n[:250]}.pdf"  # limit filenames to ~255 chars
         return n
 
     def _sanitize(self, s):
@@ -129,7 +130,7 @@ class RenamePDFsByTitle(object):
                 except AttributeError:
                     pass
                 except UnicodeDecodeError:
-                    print(" -- Could not decode title bytes: %r" % ti)
+                    print(f" -- Could not decode title bytes: {repr(ti)}")
 
             if "Author" in info:
                 au = self._resolve_objref(info["Author"])
@@ -138,12 +139,10 @@ class RenamePDFsByTitle(object):
                 except AttributeError:
                     pass
                 except UnicodeDecodeError:
-                    print(" -- Could not decode author bytes: %r" % au)
+                    print(f" -- Could not decode author bytes: {repr(au)}")
 
             if "Metadata" in self.doc.catalog:
-                xmpt, xmpa = self._get_xmp_metadata()
-                xmpt = self._resolve_objref(xmpt)
-                xmpa = self._resolve_objref(xmpa)
+                xmpt, xmpa = [self._resolve_objref(x) for x in self._get_xmp_metadata()]
                 if xmpt:
                     title = xmpt
                 if xmpa:
@@ -165,11 +164,14 @@ class RenamePDFsByTitle(object):
         return ref
 
     def _interactive_info_query(self, fn, t, a):
+        def ri(p):
+            return input(p).lower().strip()
+
         print("-" * 60)
         print("Filename:".ljust(20), fn)
-        print(" * Found (t)itle:".ljust(20), '"%s"' % str(t))
-        print(" * Found (a)uthors:".ljust(20), '"%s"' % str(a))
-        ri = lambda p: input(p).lower().strip()
+        print(" * Found (t)itle:".ljust(20), f'"{str(t)}"')
+        print(" * Found (a)uthors:".ljust(20), f'"{str(a)}"')
+
         ans = ri("Change (t/a) or open (o) or keep (k)? (t/a/o/k) ")
         while ans != "k":
             if ans == "t":
@@ -219,7 +221,7 @@ class RenamePDFsByTitle(object):
                 a = [a]
             a = list(filter(bool, a))  # remove None, empty strings, ...
             if len(a) > 1:
-                a = "%s %s" % (self._au_last_name(a[0]), self._au_last_name(a[-1]))
+                a = " ".join((self._au_last_name(a[0]), self._au_last_name(a[-1])))
             elif len(a) == 1:
                 a = self._au_last_name(a[0])
             else:
